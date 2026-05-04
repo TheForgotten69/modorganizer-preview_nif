@@ -7,7 +7,7 @@
 #include <uibase/iplugingame.h>
 
 #include <gli/gli.hpp>
-#include <libbsarch.h>
+#include <libbsarch/libbsarch.h>
 
 #include <QFileInfo>
 #include <QOpenGLFunctions_2_1>
