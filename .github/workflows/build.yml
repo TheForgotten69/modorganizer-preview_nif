@@ -26,7 +26,6 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            build/modorganizer_super/${{ github.event.repository.name }}/.cache/fetchcontent
             build/${{ github.event.repository.name }}/.cache/fetchcontent
           key: fetchcontent-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
           restore-keys: |
@@ -48,7 +47,7 @@ jobs:
         id: get_version
         shell: pwsh
         run: |
-          $filePath = "./build/modorganizer_super/${{ github.event.repository.name }}/src/PreviewNif.cpp"
+          $filePath = "./build/${{ github.event.repository.name }}/src/PreviewNif.cpp"
           
           if (-Not (Test-Path -Path $filePath)) {
               Write-Error "File not found: $filePath"
@@ -73,8 +72,8 @@ jobs:
       - name: Upload Build
         run: |
           mkdir -p upload
-          cp ./build/modorganizer_super/${{ github.event.repository.name }}/vsbuild/src/RelWithDebInfo/preview_nif.dll ./upload/preview_nif.dll
-          cp -r ./build/modorganizer_super/${{ github.event.repository.name }}/data ./upload/data
+          cp ./build/${{ github.event.repository.name }}/vsbuild/src/RelWithDebInfo/preview_nif.dll ./upload/preview_nif.dll
+          cp -r ./build/${{ github.event.repository.name }}/data ./upload/data
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
