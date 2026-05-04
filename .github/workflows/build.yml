@@ -8,6 +8,10 @@ on:
     types: [ opened, synchronize, reopened ]
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.head.ref || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: windows-2022
@@ -40,8 +44,7 @@ jobs:
       - name: Build NIF Preview Plugin
         uses: ModOrganizer2/build-with-mob-action@master
         with:
-          mo2-third-parties: libbsarch
-          mo2-dependencies: DirectXTex cmake_common uibase
+          mo2-dependencies: uibase
 
       - name: Extract version and set as environment variable
         id: get_version
