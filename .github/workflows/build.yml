@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - 'feature/**'
   pull_request:
     types: [ opened, synchronize, reopened ]
   workflow_dispatch:
@@ -12,7 +11,27 @@ on:
 jobs:
   build:
     runs-on: windows-2022
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\.cache\vcpkg
     steps:
+      - name: Cache vcpkg binary packages
+        uses: actions/cache@v4
+        with:
+          path: .cache/vcpkg
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'CMakePresets.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
+
+      - name: Cache CMake fetched dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/modorganizer_super/${{ github.event.repository.name }}/.cache/fetchcontent
+            build/${{ github.event.repository.name }}/.cache/fetchcontent
+          key: fetchcontent-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+          restore-keys: |
+            fetchcontent-${{ runner.os }}-
+
       - name: Build NIF Preview Plugin
         uses: ModOrganizer2/build-with-mob-action@master
         with:
