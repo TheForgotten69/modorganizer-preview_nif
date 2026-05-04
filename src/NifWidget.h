@@ -64,6 +64,7 @@ private:
 
   float m_ViewportWidth{};
   float m_ViewportHeight{};
+  bool m_GLInitialized = false;
   QPointF m_MousePos;
 
   static void messageLogged(const QOpenGLDebugMessage& message);

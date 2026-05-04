@@ -1,5 +1,6 @@
 #include "ShaderManager.h"
 
+#include <QDebug>
 #include <QOpenGLContext>
 
 ShaderManager::ShaderManager(MOBase::IOrganizer* moInfo) : m_MOInfo{moInfo}
@@ -62,8 +63,14 @@ QOpenGLShaderProgram* ShaderManager::loadProgram(const ShaderType type)
   const auto fragmentShader = QString("%1/shaders/%2").arg(dataPath, frag);
 
   const auto program = new QOpenGLShaderProgram(QOpenGLContext::currentContext());
-  program->addShaderFromSourceFile(QOpenGLShader::Vertex, vertexShader);
-  program->addShaderFromSourceFile(QOpenGLShader::Fragment, fragmentShader);
+  if (!program->addShaderFromSourceFile(QOpenGLShader::Vertex, vertexShader)) {
+    qWarning() << "Failed to compile vertex shader" << vertexShader
+               << program->log();
+  }
+  if (!program->addShaderFromSourceFile(QOpenGLShader::Fragment, fragmentShader)) {
+    qWarning() << "Failed to compile fragment shader" << fragmentShader
+               << program->log();
+  }
 
   program->bindAttributeLocation("position", AttribPosition);
   program->bindAttributeLocation("normal", AttribNormal);
@@ -72,7 +79,10 @@ QOpenGLShaderProgram* ShaderManager::loadProgram(const ShaderType type)
   program->bindAttributeLocation("texCoord", AttribTexCoord);
   program->bindAttributeLocation("color", AttribColor);
 
-  program->link();
+  if (!program->link()) {
+    qWarning() << "Failed to link shader program" << vertexShader << fragmentShader
+               << program->log();
+  }
 
   return program;
 }

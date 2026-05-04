@@ -1,6 +1,7 @@
 #include "OpenGLShape.h"
 #include "NifExtensions.h"
 
+#include <QDebug>
 #include <QOpenGLContext>
 #include <QOpenGLFunctions_2_1>
 #include <QOpenGLVersionFunctionsFactory>
@@ -17,6 +18,11 @@ static QOpenGLBuffer* makeVertexBuffer(const std::vector<T>* data, const GLuint 
 
       const auto f = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(
           QOpenGLContext::currentContext());
+      if (!f) {
+        buffer->release();
+        delete buffer;
+        return nullptr;
+      }
 
       f->glEnableVertexAttribArray(attrib);
 
@@ -51,6 +57,10 @@ OpenGLShape::OpenGLShape(nifly::NifFile* nifFile, nifly::NiShape* niShape,
 {
   const auto f = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(
       QOpenGLContext::currentContext());
+  if (!f) {
+    qCritical("Failed to resolve OpenGL 2.1 functions");
+    return;
+  }
 
   const auto shader = nifFile->GetShader(niShape);
 
@@ -80,7 +90,10 @@ OpenGLShape::OpenGLShape(nifly::NifFile* nifFile, nifly::NiShape* niShape,
   }
 
   vertexArray = new QOpenGLVertexArrayObject();
-  vertexArray->create();
+  if (!vertexArray->create()) {
+    qWarning("Failed to create OpenGL vertex array object");
+    return;
+  }
   auto binder = QOpenGLVertexArrayObject::Binder(vertexArray);
 
   const auto xform = GetShapeTransformToGlobal(nifFile, niShape);
@@ -333,6 +346,9 @@ void OpenGLShape::setupShaders(QOpenGLShaderProgram* program) const
 
   const auto f = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(
       QOpenGLContext::currentContext());
+  if (!f) {
+    return;
+  }
 
   for (std::size_t i = 0; i < ATTRIB_COUNT; i++) {
     if (vertexBuffers[i]) {
