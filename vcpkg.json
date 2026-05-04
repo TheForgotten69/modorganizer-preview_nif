@@ -4,6 +4,12 @@
     "mo2-uibase",
     "mo2-libbsarch"
   ],
+  "overrides": [
+    {
+      "name": "mo2-uibase",
+      "version": "2.5.3-beta.2.1"
+    }
+  ],
   "features": {
     "standalone": {
       "description": "Build Standalone.",
@@ -24,7 +30,7 @@
       {
         "kind": "git",
         "repository": "https://github.com/ModOrganizer2/vcpkg-registry",
-        "baseline": "8beb2e0efa9c17dd6d17bb05288dd1e40727f673",
+        "baseline": "f28e6416f0927869cfd995e1265481e73a3b4dd7",
         "packages": [
           "mo2-*"
         ]
