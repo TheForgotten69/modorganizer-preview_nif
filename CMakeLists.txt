@@ -2,10 +2,14 @@ cmake_minimum_required(VERSION 3.22)
 
 project(preview_nif)
 
+include(FetchContent)
+
 FetchContent_Declare(
         gli
         GIT_REPOSITORY https://github.com/g-truc/gli.git
         GIT_TAG master
+        GIT_SHALLOW TRUE
+        GIT_SUBMODULES ""
 )
 set(GLI_TEST_ENABLE OFF CACHE BOOL "Build gli unit tests")
 
@@ -13,6 +17,7 @@ FetchContent_Declare(
         nifly
         GIT_REPOSITORY https://github.com/ousnius/nifly.git
         GIT_TAG main
+        GIT_SHALLOW TRUE
 )
 
 FetchContent_MakeAvailable(gli nifly)
