@@ -2,6 +2,7 @@
   "dependencies": [
     "mo2-cmake",
     "mo2-uibase",
+    "mo2-dds-header",
     "mo2-libbsarch"
   ],
   "overrides": [
@@ -16,6 +17,7 @@
       "dependencies": [
         "mo2-cmake",
         "mo2-uibase",
+        "mo2-dds-header",
         "mo2-libbsarch"
       ]
     }
