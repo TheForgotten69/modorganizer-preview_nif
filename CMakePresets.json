@@ -46,7 +46,7 @@
         "CMAKE_CXX_FLAGS": "/EHsc /MP /W4",
         "FETCHCONTENT_BASE_DIR": {
           "type": "PATH",
-          "value": "${sourceDir}/.cache/fetchcontent"
+          "value": "${sourceDir}/../../.cache/fetchcontent"
         },
         "VCPKG_TARGET_TRIPLET": {
           "type": "STRING",

@@ -29,8 +29,7 @@ jobs:
       - name: Cache CMake fetched dependencies
         uses: actions/cache@v4
         with:
-          path: |
-            build/${{ github.event.repository.name }}/.cache/fetchcontent
+          path: .cache/fetchcontent
           key: fetchcontent-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
           restore-keys: |
             fetchcontent-${{ runner.os }}-
