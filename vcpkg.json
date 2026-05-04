@@ -1,4 +1,9 @@
 {
+  "dependencies": [
+    "mo2-cmake",
+    "mo2-uibase",
+    "mo2-libbsarch"
+  ],
   "features": {
     "standalone": {
       "description": "Build Standalone.",

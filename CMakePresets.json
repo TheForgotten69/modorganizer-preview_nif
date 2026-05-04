@@ -33,7 +33,6 @@
     {
       "name": "vs2022-windows",
       "inherits": [
-        "cmake-dev",
         "vcpkg-dev"
       ],
       "generator": "Visual Studio 17 2022",
