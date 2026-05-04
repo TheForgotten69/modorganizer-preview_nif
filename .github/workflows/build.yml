@@ -32,6 +32,12 @@ jobs:
           restore-keys: |
             fetchcontent-${{ runner.os }}-
 
+      - name: Create cache directories
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\.cache\vcpkg"
+          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\.cache\fetchcontent"
+
       - name: Build NIF Preview Plugin
         uses: ModOrganizer2/build-with-mob-action@master
         with:
