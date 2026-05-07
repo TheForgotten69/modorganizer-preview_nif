@@ -27,7 +27,7 @@ public:
   QOpenGLTexture* getFlatNormalTexture();
 
 private:
-  [[nodiscard]] QOpenGLTexture* loadTexture(const QString& texturePath) const;
+  [[nodiscard]] QOpenGLTexture* loadTexture(QString texturePath) const;
   QOpenGLTexture* tryLoadTextureFromMods(const QString& texturePath) const;
   QOpenGLTexture* tryLoadTextureFromGame(const QString& texturePath) const;
   static QOpenGLTexture* loadTextureFromBSA(const QString& bsaPath,
@@ -35,7 +35,7 @@ private:
   static QOpenGLTexture* makeTexture(const gli::texture& texture);
   static QOpenGLTexture* makeSolidColor(QVector4D color);
 
-  QString resolvePath(const MOBase::IPluginGame* game, const QString& path) const;
+  QString resolvePath(const MOBase::IPluginGame* game, QString path) const;
 
   MOBase::IOrganizer* m_MOInfo;
   QOpenGLTexture* m_ErrorTexture      = nullptr;

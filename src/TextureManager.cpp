@@ -146,10 +146,10 @@ QOpenGLTexture* TextureManager::getFlatNormalTexture()
   return m_FlatNormalTexture;
 }
 
-QOpenGLTexture* TextureManager::loadTexture(const QString& texturePath) const
+QOpenGLTexture* TextureManager::loadTexture(QString texturePath) const
 {
-  const auto stableTexturePath = detachedUtf8Copy(texturePath);
-  if (stableTexturePath.isEmpty()) {
+  qInfo() << "NIF texture load entered" << texturePath;
+  if (texturePath.isEmpty()) {
     return nullptr;
   }
 
@@ -159,17 +159,17 @@ QOpenGLTexture* TextureManager::loadTexture(const QString& texturePath) const
     return nullptr;
   }
 
-  qInfo() << "Resolving NIF texture path" << stableTexturePath;
+  qInfo() << "Resolving NIF texture path" << texturePath;
 
   QString realPath;
   try {
-    realPath = resolvePath(game, stableTexturePath);
+    realPath = resolvePath(game, texturePath);
   } catch (const std::exception& e) {
-    qWarning() << "Failed to resolve NIF texture path" << stableTexturePath
+    qWarning() << "Failed to resolve NIF texture path" << texturePath
                << e.what();
     return nullptr;
   } catch (...) {
-    qWarning() << "Failed to resolve NIF texture path" << stableTexturePath
+    qWarning() << "Failed to resolve NIF texture path" << texturePath
                << "unknown exception";
     return nullptr;
   }
@@ -193,27 +193,27 @@ QOpenGLTexture* TextureManager::loadTexture(const QString& texturePath) const
   }
 
   try {
-    if (const auto texture = tryLoadTextureFromMods(stableTexturePath)) {
+    if (const auto texture = tryLoadTextureFromMods(texturePath)) {
       return texture;
     }
   } catch (const std::exception& e) {
     qWarning() << "Failed to load NIF texture from mod archives"
-               << stableTexturePath << e.what();
+               << texturePath << e.what();
   } catch (...) {
     qWarning() << "Failed to load NIF texture from mod archives"
-               << stableTexturePath << "unknown exception";
+               << texturePath << "unknown exception";
   }
 
   try {
-    if (const auto texture = tryLoadTextureFromGame(stableTexturePath)) {
+    if (const auto texture = tryLoadTextureFromGame(texturePath)) {
       return texture;
     }
   } catch (const std::exception& e) {
     qWarning() << "Failed to load NIF texture from game archives"
-               << stableTexturePath << e.what();
+               << texturePath << e.what();
   } catch (...) {
     qWarning() << "Failed to load NIF texture from game archives"
-               << stableTexturePath << "unknown exception";
+               << texturePath << "unknown exception";
   }
 
   return nullptr;
@@ -509,15 +509,14 @@ QOpenGLTexture* TextureManager::makeSolidColor(const QVector4D color)
 }
 
 QString TextureManager::resolvePath(const MOBase::IPluginGame* game,
-                                    const QString& path) const
+                                    QString path) const
 {
-  const auto stablePath = detachedUtf8Copy(path);
-  if (auto resolved = m_MOInfo->resolvePath(stablePath); !resolved.isEmpty()) {
+  if (auto resolved = m_MOInfo->resolvePath(path); !resolved.isEmpty()) {
     return detachedUtf8Copy(resolved);
   }
 
   const auto dataPath =
-      game->dataDirectory().absoluteFilePath(QDir::cleanPath(stablePath));
+      game->dataDirectory().absoluteFilePath(QDir::cleanPath(path));
 
   return QFileInfo::exists(dataPath) ? dataPath : QString();
 }
