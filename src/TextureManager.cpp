@@ -34,14 +34,23 @@ QString findDataRoot(const QString& sourceFileName)
   return detachedUtf8Copy(QFileInfo(sourcePath).absoluteDir().absolutePath());
 }
 
+QString textureKey(const QString& value)
+{
+  return QDir::cleanPath(QDir::fromNativeSeparators(value)).toCaseFolded();
 }
 
-TextureManager::TextureManager(QString sourceFileName)
+}
+
+TextureManager::TextureManager(QString sourceFileName,
+                               QHash<QString, QString> resolvedTexturePaths)
   : m_SourceFileName{detachedUtf8Copy(sourceFileName)},
-    m_DataRoot{findDataRoot(m_SourceFileName)}
+    m_DataRoot{findDataRoot(m_SourceFileName)},
+    m_ResolvedTexturePaths{std::move(resolvedTexturePaths)}
 {
   qInfo() << "NIF texture source file" << m_SourceFileName;
   qInfo() << "NIF texture data root" << m_DataRoot;
+  qInfo() << "NIF pre-resolved texture path entries"
+          << m_ResolvedTexturePaths.size();
 }
 
 void TextureManager::cleanup()
@@ -336,6 +345,23 @@ QString TextureManager::resolvePath(QString path) const
   auto normalizedPath = QDir::cleanPath(QDir::fromNativeSeparators(path));
   while (normalizedPath.startsWith(QStringLiteral("/"))) {
     normalizedPath.remove(0, 1);
+  }
+
+  if (const auto resolved = m_ResolvedTexturePaths.value(path); !resolved.isEmpty()) {
+    qInfo() << "NIF texture pre-resolved candidate" << resolved;
+    return detachedUtf8Copy(resolved);
+  }
+
+  if (const auto resolved = m_ResolvedTexturePaths.value(normalizedPath);
+      !resolved.isEmpty()) {
+    qInfo() << "NIF texture pre-resolved normalized candidate" << resolved;
+    return detachedUtf8Copy(resolved);
+  }
+
+  if (const auto resolved = m_ResolvedTexturePaths.value(textureKey(normalizedPath));
+      !resolved.isEmpty()) {
+    qInfo() << "NIF texture pre-resolved folded candidate" << resolved;
+    return detachedUtf8Copy(resolved);
   }
 
   if (QFileInfo(normalizedPath).isAbsolute()) {

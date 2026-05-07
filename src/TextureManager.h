@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QHash>
 #include <QOpenGLTexture>
 #include <QString>
 #include <QVector4D>
@@ -10,7 +11,7 @@
 class TextureManager
 {
 public:
-  explicit TextureManager(QString sourceFileName);
+  TextureManager(QString sourceFileName, QHash<QString, QString> resolvedTexturePaths);
   ~TextureManager()                                = default;
   TextureManager(const TextureManager&)            = delete;
   TextureManager(TextureManager&&)                 = delete;
@@ -36,6 +37,7 @@ private:
 
   QString m_SourceFileName;
   QString m_DataRoot;
+  QHash<QString, QString> m_ResolvedTexturePaths;
   QOpenGLTexture* m_ErrorTexture      = nullptr;
   QOpenGLTexture* m_BlackTexture      = nullptr;
   QOpenGLTexture* m_WhiteTexture      = nullptr;
