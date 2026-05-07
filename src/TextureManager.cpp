@@ -5,10 +5,14 @@
 #include <libbsarch/libbsarch.h>
 
 #include <QDebug>
+#include <QDateTime>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QIODevice>
 #include <QOpenGLFunctions_2_1>
 #include <QOpenGLVersionFunctionsFactory>
+#include <QTextStream>
 #include <QVector4D>
 
 #include <exception>
@@ -71,25 +75,105 @@ QString findDataRoot(const QString& sourceFileName)
   return detachedUtf8Copy(QFileInfo(sourcePath).absoluteDir().absolutePath());
 }
 
-QStringList findDataRoots(const QString& dataRoot)
+QString findModsRoot(const QString& dataRoot)
 {
-  QStringList dataRoots;
-  addUniquePath(dataRoots, dataRoot);
-
   const auto normalizedRoot = QDir::fromNativeSeparators(dataRoot);
   const auto lowerRoot      = normalizedRoot.toCaseFolded();
   const auto marker         = QStringLiteral("/mods/");
   const auto markerIndex    = lowerRoot.lastIndexOf(marker);
   if (markerIndex < 0) {
+    return QString();
+  }
+
+  return detachedUtf8Copy(
+      normalizedRoot.left(markerIndex + QStringLiteral("/mods").size()));
+}
+
+QString findModListPath(const QString& modsRoot)
+{
+  if (modsRoot.isEmpty()) {
+    return QString();
+  }
+
+  QDir profilesDir(QFileInfo(modsRoot).absoluteDir().absoluteFilePath(
+      QStringLiteral("profiles")));
+  if (!profilesDir.exists()) {
+    return QString();
+  }
+
+  QFileInfo newestModList;
+  const auto profiles = profilesDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
+  for (const auto& profile : profiles) {
+    const QFileInfo modList(QDir(profile.absoluteFilePath()).absoluteFilePath(
+        QStringLiteral("modlist.txt")));
+    if (!modList.isFile()) {
+      continue;
+    }
+    if (!newestModList.exists() || modList.lastModified() > newestModList.lastModified()) {
+      newestModList = modList;
+    }
+  }
+
+  return newestModList.exists() ? detachedUtf8Copy(newestModList.absoluteFilePath())
+                                : QString();
+}
+
+QStringList readEnabledMods(const QString& modListPath)
+{
+  QStringList enabledMods;
+  QFile modList(modListPath);
+  if (!modList.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    return enabledMods;
+  }
+
+  QTextStream stream(&modList);
+  while (!stream.atEnd()) {
+    const auto line = stream.readLine().trimmed();
+    if (line.isEmpty() || line.startsWith(QStringLiteral("#"))) {
+      continue;
+    }
+    if (!line.startsWith(QStringLiteral("+"))) {
+      continue;
+    }
+
+    const auto modName = line.mid(1).trimmed();
+    if (!modName.isEmpty()) {
+      enabledMods.append(modName);
+    }
+  }
+
+  return enabledMods;
+}
+
+QStringList findDataRoots(const QString& dataRoot)
+{
+  QStringList dataRoots;
+
+  const auto modsRoot = findModsRoot(dataRoot);
+  if (modsRoot.isEmpty()) {
+    addUniquePath(dataRoots, dataRoot);
     return dataRoots;
   }
 
-  const auto modsRoot = normalizedRoot.left(markerIndex + QStringLiteral("/mods").size());
   QDir modsDir(modsRoot);
   if (!modsDir.exists()) {
+    addUniquePath(dataRoots, dataRoot);
     return dataRoots;
   }
 
+  const auto modListPath = findModListPath(modsRoot);
+  const auto enabledMods = readEnabledMods(modListPath);
+  if (!enabledMods.isEmpty()) {
+    qInfo() << "NIF texture resolver using modlist" << modListPath
+            << "enabled mods" << enabledMods.size();
+    for (auto it = enabledMods.crbegin(); it != enabledMods.crend(); ++it) {
+      addUniquePath(dataRoots, modsDir.absoluteFilePath(*it));
+    }
+    addUniquePath(dataRoots, dataRoot);
+    return dataRoots;
+  }
+
+  addUniquePath(dataRoots, dataRoot);
   const auto modDirs = modsDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot,
                                              QDir::Name | QDir::Reversed);
   for (const auto& modDir : modDirs) {
@@ -508,8 +592,8 @@ QString TextureManager::resolvePath(QString path) const
 
   for (const auto& dataRoot : m_DataRoots) {
     const auto candidate = QDir(dataRoot).absoluteFilePath(normalizedPath);
-    qInfo() << "NIF texture loose-file candidate" << candidate;
     if (QFileInfo(candidate).isFile()) {
+      qInfo() << "NIF texture loose-file resolved" << candidate;
       return detachedUtf8Copy(candidate);
     }
   }
