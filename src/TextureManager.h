@@ -4,6 +4,7 @@
 #include <gli/gli.hpp>
 #include <uibase/imoinfo.h>
 #include <map>
+#include <string>
 
 class TextureManager
 {
@@ -42,5 +43,5 @@ private:
   QOpenGLTexture* m_WhiteTexture      = nullptr;
   QOpenGLTexture* m_FlatNormalTexture = nullptr;
 
-  std::map<std::wstring, QOpenGLTexture*> m_Textures;
+  std::map<std::string, QOpenGLTexture*> m_Textures;
 };

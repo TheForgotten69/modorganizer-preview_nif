@@ -16,18 +16,14 @@ NifWidget::NifWidget(std::shared_ptr<nifly::NifFile> nifFile,
     m_TextureManager{std::make_unique<TextureManager>(organizer)},
     m_ShaderManager{std::make_unique<ShaderManager>(organizer)}
 {
-  QSurfaceFormat format;
-  format.setVersion(2, 1);
-  format.setProfile(QSurfaceFormat::NoProfile);
-
   if (debugContext) {
+    QSurfaceFormat format;
     format.setOption(QSurfaceFormat::DebugContext);
-    m_Context = new QOpenGLContext();
-    m_Context->setFormat(format);
-    m_Context->create();
+    setFormat(format);
   }
 
-  setFormat(format);
+  qInfo() << "NIF preview widget created; OpenGL debug context"
+          << (debugContext ? "requested" : "not requested");
 }
 
 NifWidget::~NifWidget()
@@ -92,6 +88,7 @@ void NifWidget::messageLogged(const QOpenGLDebugMessage& message)
 void NifWidget::initializeGL()
 {
   m_GLInitialized = true;
+  m_GLClean       = false;
 
   const auto context = QOpenGLContext::currentContext();
   if (!context) {
@@ -103,6 +100,9 @@ void NifWidget::initializeGL()
   qInfo() << "NIF preview OpenGL context" << format.majorVersion()
           << format.minorVersion() << "profile" << format.profile();
 
+  connect(context, &QOpenGLContext::aboutToBeDestroyed, this, &NifWidget::cleanup,
+          Qt::UniqueConnection);
+
   const auto f =
       QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(context);
   if (!f) {
@@ -110,23 +110,28 @@ void NifWidget::initializeGL()
     return;
   }
 
-  if (m_Context) {
-    m_Logger = new QOpenGLDebugLogger(m_Context);
+  if (format.testOption(QSurfaceFormat::DebugContext)) {
+    m_Logger = new QOpenGLDebugLogger(this);
     if (m_Logger->initialize()) {
       m_Logger->enableMessages();
-      qDebug() << "GL_DEBUG Debug Logger" << m_Logger;
+      qInfo() << "NIF preview OpenGL debug logger initialized";
       connect(m_Logger, &QOpenGLDebugLogger::messageLogged, this,
               &NifWidget::messageLogged);
       m_Logger->startLogging();
+    } else {
+      qWarning("Failed to initialize NIF preview OpenGL debug logger");
     }
   }
 
   auto shapes = m_NifFile->GetShapes();
+  qInfo() << "NIF preview loading" << shapes.size() << "shape(s)";
   for (auto& shape : shapes) {
     if (shape->flags & TriShape::Hidden) {
       continue;
     }
 
+    qInfo() << "NIF preview shape" << shape->GetNumVertices() << "verts"
+            << shape->GetNumTriangles() << "faces";
     m_GLShapes.emplace_back(m_NifFile.get(), shape, m_TextureManager.get());
   }
 
@@ -266,11 +271,17 @@ void NifWidget::resizeGL(const int w, const int h)
 
 void NifWidget::cleanup()
 {
-  if (!m_GLInitialized || !context()) {
+  if (!m_GLInitialized || m_GLClean || !context()) {
     return;
   }
 
   makeCurrent();
+
+  if (m_Logger) {
+    m_Logger->stopLogging();
+    delete m_Logger;
+    m_Logger = nullptr;
+  }
 
   for (auto& shape : m_GLShapes) {
     shape.destroy();
@@ -279,6 +290,7 @@ void NifWidget::cleanup()
 
   m_TextureManager->cleanup();
   doneCurrent();
+  m_GLClean = true;
 }
 
 void NifWidget::setProjectionMatrix()

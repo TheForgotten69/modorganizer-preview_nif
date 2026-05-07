@@ -4,6 +4,7 @@
 #include "NifWidget.h"
 #include "PreviewNif.h"
 
+#include <QDebug>
 #include <QGridLayout>
 #include <filesystem>
 #include <sstream>
@@ -65,11 +66,16 @@ QWidget* PreviewNif::genDataPreview(const QByteArray& fileData, const QString& f
   auto path = std::filesystem::path(fileName.toStdWString());
   std::shared_ptr<nifly::NifFile> nifFile;
 
+  qInfo() << "NIF preview requested for" << fileName << "max size" << maxSize
+          << "data bytes" << (fileData == nullptr ? 0 : fileData.size());
+
   if (fileData != nullptr && !fileData.isEmpty()) {
+    qInfo() << "Loading NIF preview from provided data for" << fileName;
     const auto fileStream =
         std::make_shared<std::istringstream>(fileData.toStdString());
     nifFile = std::make_shared<nifly::NifFile>(*fileStream);
   } else {
+    qInfo() << "Loading NIF preview from file path" << fileName;
     nifFile = std::make_shared<nifly::NifFile>(path);
   }
 
@@ -84,7 +90,10 @@ QWidget* PreviewNif::genDataPreview(const QByteArray& fileData, const QString& f
 
   layout->addWidget(makeLabel(nifFile.get()), 1, 0, 1, 1);
 
-  const auto nifWidget = new NifWidget(nifFile, m_MOInfo);
+  constexpr bool logGlErrors = true;
+  qInfo("NIF preview OpenGL diagnostic logging enabled");
+
+  const auto nifWidget = new NifWidget(nifFile, m_MOInfo, logGlErrors);
   layout->addWidget(nifWidget, 0, 0, 1, 1);
 
   const auto widget = new QWidget();
@@ -103,6 +112,9 @@ QLabel* PreviewNif::makeLabel(const nifly::NifFile* nifFile)
     faces += shape->GetNumTriangles();
     verts += shape->GetNumVertices();
   }
+
+  qInfo() << "NIF preview summary" << verts << "verts" << faces << "faces"
+          << shapes << "shape(s)";
 
   const auto text =
       tr("Verts: %1 | Faces: %2 | Shapes: %3").arg(verts).arg(faces).arg(shapes);
