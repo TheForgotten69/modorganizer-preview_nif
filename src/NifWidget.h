@@ -8,7 +8,6 @@
 #include <QOpenGLDebugLogger>
 #include <QOpenGLShaderProgram>
 #include <QOpenGLWidget>
-#include <QHash>
 #include <QSharedPointer>
 #include <QString>
 
@@ -23,9 +22,8 @@ class NifWidget final : public QOpenGLWidget
 
 public:
   NifWidget(std::shared_ptr<nifly::NifFile> nifFile,
-            QString sourceFileName, QHash<QString, QString> resolvedTexturePaths,
-            MOBase::IOrganizer* organizer, bool debugContext = false,
-            QWidget* parent = nullptr,
+            QString sourceFileName, MOBase::IOrganizer* organizer,
+            bool debugContext = false, QWidget* parent = nullptr,
             Qt::WindowFlags f = {0});
 
   ~NifWidget() override;
@@ -52,7 +50,6 @@ private:
 
   std::shared_ptr<nifly::NifFile> m_NifFile;
   QString m_SourceFileName;
-  QHash<QString, QString> m_ResolvedTexturePaths;
   MOBase::IOrganizer* m_MOInfo = nullptr;
 
   std::unique_ptr<TextureManager> m_TextureManager;

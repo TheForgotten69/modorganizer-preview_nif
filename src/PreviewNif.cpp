@@ -5,100 +5,9 @@
 #include "PreviewNif.h"
 
 #include <QDebug>
-#include <QDir>
 #include <QGridLayout>
-#include <QHash>
-#include <QSet>
-#include <exception>
 #include <filesystem>
 #include <sstream>
-
-namespace
-{
-QString textureKey(const QString& value)
-{
-  return QDir::cleanPath(QDir::fromNativeSeparators(value)).toCaseFolded();
-}
-
-QString toQString(const std::string& value)
-{
-  return QString::fromUtf8(value.data(), static_cast<qsizetype>(value.size()));
-}
-
-QSet<QString> collectTexturePaths(nifly::NifFile* nifFile)
-{
-  QSet<QString> texturePaths;
-
-  for (const auto& shape : nifFile->GetShapes()) {
-    const auto shader = nifFile->GetShader(shape);
-    if (!shader || !shader->HasTextureSet()) {
-      continue;
-    }
-
-    const auto textureSetRef = shader->TextureSetRef();
-    const auto textureSet = nifFile->GetHeader().GetBlock(textureSetRef);
-    if (!textureSet) {
-      continue;
-    }
-
-    for (const auto& texture : textureSet->textures) {
-      const auto path = toQString(texture.get());
-      if (!path.isEmpty()) {
-        texturePaths.insert(path);
-      }
-    }
-  }
-
-  return texturePaths;
-}
-
-QHash<QString, QString> resolveTexturePaths(MOBase::IOrganizer* organizer,
-                                            nifly::NifFile* nifFile)
-{
-  QHash<QString, QString> resolvedTexturePaths;
-  if (!organizer) {
-    return resolvedTexturePaths;
-  }
-
-  const auto texturePaths = collectTexturePaths(nifFile);
-  qInfo() << "Pre-resolving" << texturePaths.size()
-          << "NIF texture path(s) before OpenGL setup";
-
-  for (const auto& texturePath : texturePaths) {
-    const auto normalizedTexturePath =
-        QDir::cleanPath(QDir::fromNativeSeparators(texturePath));
-
-    QString resolved;
-    try {
-      resolved = organizer->resolvePath(texturePath);
-      if (resolved.isEmpty() && normalizedTexturePath != texturePath) {
-        resolved = organizer->resolvePath(normalizedTexturePath);
-      }
-    } catch (const std::exception& e) {
-      qWarning() << "Failed to pre-resolve NIF texture" << texturePath
-                 << e.what();
-      continue;
-    } catch (...) {
-      qWarning() << "Failed to pre-resolve NIF texture" << texturePath
-                 << "unknown exception";
-      continue;
-    }
-
-    if (resolved.isEmpty()) {
-      qInfo() << "NIF texture pre-resolve missing" << texturePath;
-      continue;
-    }
-
-    qInfo() << "NIF texture pre-resolved" << texturePath << "->" << resolved;
-    resolvedTexturePaths.insert(texturePath, resolved);
-    resolvedTexturePaths.insert(normalizedTexturePath, resolved);
-    resolvedTexturePaths.insert(textureKey(texturePath), resolved);
-  }
-
-  return resolvedTexturePaths;
-}
-
-}
 
 bool PreviewNif::init(MOBase::IOrganizer* moInfo)
 {
@@ -183,10 +92,8 @@ QWidget* PreviewNif::genDataPreview(const QByteArray& fileData, const QString& f
 
   constexpr bool logGlErrors = true;
   qInfo("NIF preview OpenGL diagnostic logging enabled");
-  const auto resolvedTexturePaths = resolveTexturePaths(m_MOInfo, nifFile.get());
 
-  const auto nifWidget =
-      new NifWidget(nifFile, fileName, resolvedTexturePaths, m_MOInfo, logGlErrors);
+  const auto nifWidget = new NifWidget(nifFile, fileName, m_MOInfo, logGlErrors);
   layout->addWidget(nifWidget, 0, 0, 1, 1);
 
   const auto widget = new QWidget();
