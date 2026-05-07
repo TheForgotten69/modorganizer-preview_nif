@@ -35,7 +35,7 @@ private:
   static QOpenGLTexture* makeTexture(const gli::texture& texture);
   static QOpenGLTexture* makeSolidColor(QVector4D color);
 
-  QString resolvePath(const MOBase::IPluginGame* game, QString path) const;
+  QString resolvePath(QString path) const;
 
   MOBase::IOrganizer* m_MOInfo;
   QOpenGLTexture* m_ErrorTexture      = nullptr;

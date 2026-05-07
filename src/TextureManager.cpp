@@ -4,13 +4,11 @@
 #include <uibase/game_features/dataarchives.h>
 #include <uibase/game_features/igamefeatures.h>
 #include <uibase/ifiletree.h>
-#include <uibase/iplugingame.h>
 
 #include <gli/gli.hpp>
 #include <libbsarch/libbsarch.h>
 
 #include <QDebug>
-#include <QDir>
 #include <QFileInfo>
 #include <QOpenGLFunctions_2_1>
 #include <QOpenGLVersionFunctionsFactory>
@@ -153,17 +151,11 @@ QOpenGLTexture* TextureManager::loadTexture(QString texturePath) const
     return nullptr;
   }
 
-  const auto game = m_MOInfo->managedGame();
-  if (!game) {
-    qCritical("Failed to interface with managed game plugin");
-    return nullptr;
-  }
-
   qInfo() << "Resolving NIF texture path" << texturePath;
 
   QString realPath;
   try {
-    realPath = resolvePath(game, texturePath);
+    realPath = resolvePath(texturePath);
   } catch (const std::exception& e) {
     qWarning() << "Failed to resolve NIF texture path" << texturePath
                << e.what();
@@ -243,7 +235,7 @@ QOpenGLTexture* TextureManager::tryLoadTextureFromMods(const QString& texturePat
 
         QString bsaPath;
         try {
-          bsaPath = resolvePath(m_MOInfo->managedGame(), fileInfo->name());
+          bsaPath = resolvePath(fileInfo->name());
         } catch (const std::exception& e) {
           qWarning() << "Failed to resolve mod archive for NIF texture"
                      << fileInfo->name() << e.what();
@@ -288,7 +280,7 @@ QOpenGLTexture* TextureManager::tryLoadTextureFromGame(
   for (const auto& archive : std::ranges::reverse_view(archives)) {
     QString bsaPath;
     try {
-      bsaPath = resolvePath(m_MOInfo->managedGame(), archive);
+      bsaPath = resolvePath(archive);
     } catch (const std::exception& e) {
       qWarning() << "Failed to resolve game archive for NIF texture" << archive
                  << e.what();
@@ -508,15 +500,11 @@ QOpenGLTexture* TextureManager::makeSolidColor(const QVector4D color)
   return glTexture;
 }
 
-QString TextureManager::resolvePath(const MOBase::IPluginGame* game,
-                                    QString path) const
+QString TextureManager::resolvePath(QString path) const
 {
   if (auto resolved = m_MOInfo->resolvePath(path); !resolved.isEmpty()) {
     return detachedUtf8Copy(resolved);
   }
 
-  const auto dataPath =
-      game->dataDirectory().absoluteFilePath(QDir::cleanPath(path));
-
-  return QFileInfo::exists(dataPath) ? dataPath : QString();
+  return QString();
 }
