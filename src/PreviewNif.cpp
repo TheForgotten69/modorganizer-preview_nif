@@ -93,7 +93,7 @@ QWidget* PreviewNif::genDataPreview(const QByteArray& fileData, const QString& f
   constexpr bool logGlErrors = true;
   qInfo("NIF preview OpenGL diagnostic logging enabled");
 
-  const auto nifWidget = new NifWidget(nifFile, m_MOInfo, logGlErrors);
+  const auto nifWidget = new NifWidget(nifFile, fileName, m_MOInfo, logGlErrors);
   layout->addWidget(nifWidget, 0, 0, 1, 1);
 
   const auto widget = new QWidget();

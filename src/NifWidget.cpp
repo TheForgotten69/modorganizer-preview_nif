@@ -10,10 +10,12 @@
 using OpenGLFunctions = QOpenGLFunctions_2_1;
 
 NifWidget::NifWidget(std::shared_ptr<nifly::NifFile> nifFile,
-                     MOBase::IOrganizer* organizer, const bool debugContext,
-                     QWidget* parent, const Qt::WindowFlags f)
-  : QOpenGLWidget(parent, f), m_NifFile{std::move(nifFile)}, m_MOInfo{organizer},
-    m_TextureManager{std::make_unique<TextureManager>(organizer)},
+                     QString sourceFileName, MOBase::IOrganizer* organizer,
+                     const bool debugContext, QWidget* parent,
+                     const Qt::WindowFlags f)
+  : QOpenGLWidget(parent, f), m_NifFile{std::move(nifFile)},
+    m_SourceFileName{std::move(sourceFileName)}, m_MOInfo{organizer},
+    m_TextureManager{std::make_unique<TextureManager>(m_SourceFileName)},
     m_ShaderManager{std::make_unique<ShaderManager>(organizer)}
 {
   if (debugContext) {

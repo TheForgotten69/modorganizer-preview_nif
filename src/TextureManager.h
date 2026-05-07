@@ -1,15 +1,16 @@
 #pragma once
 
 #include <QOpenGLTexture>
+#include <QString>
+#include <QVector4D>
 #include <gli/gli.hpp>
-#include <uibase/imoinfo.h>
 #include <map>
 #include <string>
 
 class TextureManager
 {
 public:
-  explicit TextureManager(MOBase::IOrganizer* organizer);
+  explicit TextureManager(QString sourceFileName);
   ~TextureManager()                                = default;
   TextureManager(const TextureManager&)            = delete;
   TextureManager(TextureManager&&)                 = delete;
@@ -28,16 +29,13 @@ public:
 
 private:
   [[nodiscard]] QOpenGLTexture* loadTexture(QString texturePath) const;
-  QOpenGLTexture* tryLoadTextureFromMods(const QString& texturePath) const;
-  QOpenGLTexture* tryLoadTextureFromGame(const QString& texturePath) const;
-  static QOpenGLTexture* loadTextureFromBSA(const QString& bsaPath,
-                                            const QString& texturePath);
   static QOpenGLTexture* makeTexture(const gli::texture& texture);
   static QOpenGLTexture* makeSolidColor(QVector4D color);
 
   QString resolvePath(QString path) const;
 
-  MOBase::IOrganizer* m_MOInfo;
+  QString m_SourceFileName;
+  QString m_DataRoot;
   QOpenGLTexture* m_ErrorTexture      = nullptr;
   QOpenGLTexture* m_BlackTexture      = nullptr;
   QOpenGLTexture* m_WhiteTexture      = nullptr;

@@ -9,6 +9,7 @@
 #include <QOpenGLShaderProgram>
 #include <QOpenGLWidget>
 #include <QSharedPointer>
+#include <QString>
 
 #include <NifFile.hpp>
 #include <uibase/imoinfo.h>
@@ -20,7 +21,8 @@ class NifWidget final : public QOpenGLWidget
   Q_OBJECT
 
 public:
-  NifWidget(std::shared_ptr<nifly::NifFile> nifFile, MOBase::IOrganizer* organizer,
+  NifWidget(std::shared_ptr<nifly::NifFile> nifFile,
+            QString sourceFileName, MOBase::IOrganizer* organizer,
             bool debugContext = false, QWidget* parent = nullptr,
             Qt::WindowFlags f = {0});
 
@@ -47,6 +49,7 @@ private:
   inline static QWeakPointer<Camera> SharedCamera;
 
   std::shared_ptr<nifly::NifFile> m_NifFile;
+  QString m_SourceFileName;
   MOBase::IOrganizer* m_MOInfo = nullptr;
 
   std::unique_ptr<TextureManager> m_TextureManager;
