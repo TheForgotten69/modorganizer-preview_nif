@@ -2,6 +2,7 @@
 
 #include <QOpenGLTexture>
 #include <QString>
+#include <QStringList>
 #include <QVector4D>
 #include <gli/gli.hpp>
 #include <map>
@@ -29,6 +30,10 @@ public:
 
 private:
   [[nodiscard]] QOpenGLTexture* loadTexture(QString texturePath) const;
+  [[nodiscard]] QOpenGLTexture* loadTextureFromArchives(
+      const QString& texturePath) const;
+  static QOpenGLTexture* loadTextureFromBSA(const QString& bsaPath,
+                                            const QString& texturePath);
   static QOpenGLTexture* makeTexture(const gli::texture& texture);
   static QOpenGLTexture* makeSolidColor(QVector4D color);
 
@@ -36,6 +41,8 @@ private:
 
   QString m_SourceFileName;
   QString m_DataRoot;
+  QStringList m_DataRoots;
+  QStringList m_ArchivePaths;
   QOpenGLTexture* m_ErrorTexture      = nullptr;
   QOpenGLTexture* m_BlackTexture      = nullptr;
   QOpenGLTexture* m_WhiteTexture      = nullptr;

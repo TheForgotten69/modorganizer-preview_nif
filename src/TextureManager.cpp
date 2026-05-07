@@ -2,6 +2,7 @@
 #include "PreviewNif.h"
 
 #include <gli/gli.hpp>
+#include <libbsarch/libbsarch.h>
 
 #include <QDebug>
 #include <QDir>
@@ -11,13 +12,49 @@
 #include <QVector4D>
 
 #include <exception>
+#include <memory>
 
 namespace
 {
+struct BsaPtrDeleter
+{
+  void operator()(void* ptr) const
+  {
+    bsa_free(ptr);
+  }
+};
+
+using UniqueBsaPtr = std::unique_ptr<void, BsaPtrDeleter>;
+
+struct BsaBufferDeleter
+{
+  explicit BsaBufferDeleter(void* bsa) : m_bsa(bsa)
+  {
+  }
+
+  void operator()(const bsa_result_buffer_t* buffer) const
+  {
+    bsa_file_data_free(m_bsa, *buffer);
+  }
+
+  void* m_bsa;
+};
+
+using UniqueBufferPtr = std::unique_ptr<bsa_result_buffer_t, BsaBufferDeleter>;
+
 QString detachedUtf8Copy(const QString& value)
 {
   const auto utf8 = value.toUtf8();
   return QString::fromUtf8(utf8.constData(), utf8.size());
+}
+
+void addUniquePath(QStringList& paths, const QString& path)
+{
+  const auto normalizedPath = detachedUtf8Copy(QDir::cleanPath(
+      QDir::fromNativeSeparators(path)));
+  if (!normalizedPath.isEmpty() && !paths.contains(normalizedPath, Qt::CaseInsensitive)) {
+    paths.append(normalizedPath);
+  }
 }
 
 QString findDataRoot(const QString& sourceFileName)
@@ -34,14 +71,67 @@ QString findDataRoot(const QString& sourceFileName)
   return detachedUtf8Copy(QFileInfo(sourcePath).absoluteDir().absolutePath());
 }
 
+QStringList findDataRoots(const QString& dataRoot)
+{
+  QStringList dataRoots;
+  addUniquePath(dataRoots, dataRoot);
+
+  const auto normalizedRoot = QDir::fromNativeSeparators(dataRoot);
+  const auto lowerRoot      = normalizedRoot.toCaseFolded();
+  const auto marker         = QStringLiteral("/mods/");
+  const auto markerIndex    = lowerRoot.lastIndexOf(marker);
+  if (markerIndex < 0) {
+    return dataRoots;
+  }
+
+  const auto modsRoot = normalizedRoot.left(markerIndex + QStringLiteral("/mods").size());
+  QDir modsDir(modsRoot);
+  if (!modsDir.exists()) {
+    return dataRoots;
+  }
+
+  const auto modDirs = modsDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot,
+                                             QDir::Name | QDir::Reversed);
+  for (const auto& modDir : modDirs) {
+    addUniquePath(dataRoots, modDir.absoluteFilePath());
+  }
+
+  return dataRoots;
+}
+
+QStringList findArchives(const QStringList& dataRoots)
+{
+  QStringList archivePaths;
+
+  for (const auto& dataRoot : dataRoots) {
+    QDir rootDir(dataRoot);
+    if (!rootDir.exists()) {
+      continue;
+    }
+
+    const auto archives = rootDir.entryInfoList(
+        {QStringLiteral("*.bsa"), QStringLiteral("*.ba2")},
+        QDir::Files, QDir::Name | QDir::Reversed);
+    for (const auto& archive : archives) {
+      addUniquePath(archivePaths, archive.absoluteFilePath());
+    }
+  }
+
+  return archivePaths;
+}
+
 }
 
 TextureManager::TextureManager(QString sourceFileName)
   : m_SourceFileName{detachedUtf8Copy(sourceFileName)},
-    m_DataRoot{findDataRoot(m_SourceFileName)}
+    m_DataRoot{findDataRoot(m_SourceFileName)},
+    m_DataRoots{findDataRoots(m_DataRoot)},
+    m_ArchivePaths{findArchives(m_DataRoots)}
 {
   qInfo() << "NIF texture source file" << m_SourceFileName;
   qInfo() << "NIF texture data root" << m_DataRoot;
+  qInfo() << "NIF texture filesystem root count" << m_DataRoots.size();
+  qInfo() << "NIF texture archive count" << m_ArchivePaths.size();
 }
 
 void TextureManager::cleanup()
@@ -169,8 +259,76 @@ QOpenGLTexture* TextureManager::loadTexture(QString texturePath) const
     }
   }
 
-  qInfo() << "NIF texture not found as loose file" << texturePath;
+  try {
+    if (const auto texture = loadTextureFromArchives(texturePath)) {
+      return texture;
+    }
+  } catch (const std::exception& e) {
+    qWarning() << "Failed to load NIF texture from filesystem archives"
+               << texturePath << e.what();
+  } catch (...) {
+    qWarning() << "Failed to load NIF texture from filesystem archives"
+               << texturePath << "unknown exception";
+  }
+
+  qInfo() << "NIF texture not found" << texturePath;
   return nullptr;
+}
+
+QOpenGLTexture* TextureManager::loadTextureFromArchives(
+    const QString& texturePath) const
+{
+  if (m_ArchivePaths.isEmpty()) {
+    return nullptr;
+  }
+
+  qInfo() << "Searching" << m_ArchivePaths.size()
+          << "archive(s) for NIF texture" << texturePath;
+  for (const auto& archivePath : m_ArchivePaths) {
+    if (const auto texture = loadTextureFromBSA(archivePath, texturePath)) {
+      return texture;
+    }
+  }
+
+  return nullptr;
+}
+
+QOpenGLTexture* TextureManager::loadTextureFromBSA(const QString& bsaPath,
+                                                   const QString& texturePath)
+{
+  const UniqueBsaPtr bsaHandle(bsa_create());
+  static_assert(sizeof(wchar_t) == 2, "Expected wchar_t to be 2 bytes");
+
+  const auto bsaPathUtf16  = reinterpret_cast<const wchar_t*>(bsaPath.utf16());
+  const auto [code, _text] = bsa_load_from_file(bsaHandle.get(), bsaPathUtf16);
+  if (code == BSA_RESULT_EXCEPTION) {
+    return nullptr;
+  }
+
+  const auto texturePathUtf16 =
+      reinterpret_cast<const wchar_t*>(texturePath.utf16());
+  auto [rBuffer, msg] = bsa_extract_file_data_by_filename(
+      bsaHandle.get(), texturePathUtf16);
+  if (msg.code == BSA_RESULT_EXCEPTION) {
+    return nullptr;
+  }
+
+  const UniqueBufferPtr buffer(&rBuffer, BsaBufferDeleter(bsaHandle.get()));
+
+  const auto data = static_cast<char*>(buffer->data);
+  qInfo() << "Extracted NIF texture from archive" << texturePath << "from"
+          << bsaPath << "bytes" << buffer->size;
+  try {
+    return makeTexture(gli::load(data, buffer->size));
+  } catch (const std::exception& e) {
+    qWarning() << "Failed to load NIF texture" << texturePath << "from" << bsaPath
+               << e.what();
+    return nullptr;
+  } catch (...) {
+    qWarning() << "Failed to load NIF texture" << texturePath << "from" << bsaPath
+               << "unknown exception";
+    return nullptr;
+  }
 }
 
 QOpenGLTexture* TextureManager::makeTexture(const gli::texture& texture)
@@ -344,12 +502,17 @@ QString TextureManager::resolvePath(QString path) const
                                               : QString();
   }
 
-  if (m_DataRoot.isEmpty()) {
+  if (m_DataRoots.isEmpty()) {
     return QString();
   }
 
-  const auto candidate =
-      QDir(m_DataRoot).absoluteFilePath(normalizedPath);
-  qInfo() << "NIF texture loose-file candidate" << candidate;
-  return QFileInfo(candidate).isFile() ? detachedUtf8Copy(candidate) : QString();
+  for (const auto& dataRoot : m_DataRoots) {
+    const auto candidate = QDir(dataRoot).absoluteFilePath(normalizedPath);
+    qInfo() << "NIF texture loose-file candidate" << candidate;
+    if (QFileInfo(candidate).isFile()) {
+      return detachedUtf8Copy(candidate);
+    }
+  }
+
+  return QString();
 }
