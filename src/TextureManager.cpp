@@ -52,6 +52,14 @@ QString detachedUtf8Copy(const QString& value)
   return QString::fromUtf8(utf8.constData(), utf8.size());
 }
 
+std::string textureCacheKey(const QString& value)
+{
+  const auto key = QDir::cleanPath(QDir::fromNativeSeparators(value))
+                     .toCaseFolded()
+                     .toUtf8();
+  return {key.constData(), static_cast<std::size_t>(key.size())};
+}
+
 void addUniquePath(QStringList& paths, const QString& path)
 {
   const auto normalizedPath = detachedUtf8Copy(QDir::cleanPath(
@@ -254,7 +262,12 @@ QOpenGLTexture* TextureManager::getTexture(const QString& texturePath)
 
   qInfo() << "NIF texture requested" << stableTexturePath;
 
-  qInfo("NIF texture cache bypassed for diagnostic build");
+  const auto cacheKey = textureCacheKey(stableTexturePath);
+  if (const auto cached = m_Textures.find(cacheKey); cached != m_Textures.end()) {
+    qInfo() << "NIF texture cache hit" << stableTexturePath
+            << (cached->second ? "loaded" : "missing");
+    return cached->second;
+  }
 
   QOpenGLTexture* texture = nullptr;
   try {
@@ -268,6 +281,7 @@ QOpenGLTexture* TextureManager::getTexture(const QString& texturePath)
 
   qInfo() << "NIF texture result" << stableTexturePath
           << (texture ? "loaded" : "missing");
+  m_Textures[cacheKey] = texture;
   return texture;
 }
 
