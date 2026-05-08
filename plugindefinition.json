@@ -1,19 +1,19 @@
 {
   "Name": "NIF Preview Updated",
-  "Author": "Parapets - GabonZ",
+  "Author": "Parapets - GabonZ - TheForgotten69",
   "Description": "Supports previewing NIF files",
   "DocsUrl": "",
-  "GithubUrl": "https://github.com/gabriel-andreescu/modorganizer-preview_nif",
-  "NexusUrl": "https://www.nexusmods.com/skyrimspecialedition/mods/137741",
+  "GithubUrl": "https://github.com/TheForgotten69/modorganizer-preview_nif",
+  "NexusUrl": "https://www.nexusmods.com/skyrimspecialedition/mods/179525",
   "Versions": [
     {
-      "Version": "0.4.3.0b",
-      "Released": "2025-01-21",
+      "Version": "0.5.0.0",
+      "Released": "2026-05-08",
       "MinSupport": "2.5.2",
-      "MaxSupport": "2.5.2",
+      "MaxSupport": "2.5.3",
       "MinWorking": "2.5.2",
       "MaxWorking": "",
-      "DownloadUrl": "https://github.com/gabriel-andreescu/modorganizer-preview_nif/releases/download/0.4.3/preview_nif_0.4.3.zip",
+      "DownloadUrl": "https://github.com/TheForgotten69/modorganizer-preview_nif/releases/download/0.5.0/preview_nif_0.5.0.zip",
       "PluginPath": [
         "preview_nif.dll",
         "data"

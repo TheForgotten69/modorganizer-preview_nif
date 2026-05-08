@@ -4,6 +4,7 @@
 #include "NifWidget.h"
 #include "PreviewNif.h"
 
+#include <QDebug>
 #include <QGridLayout>
 #include <filesystem>
 #include <sstream>
@@ -31,7 +32,7 @@ QString PreviewNif::description() const
 
 MOBase::VersionInfo PreviewNif::version() const
 {
-  return {0, 4, 3, 0, MOBase::VersionInfo::RELEASE_BETA};
+  return {0, 5, 0, 0, MOBase::VersionInfo::RELEASE_BETA};
 }
 
 QList<MOBase::PluginSetting> PreviewNif::settings() const
@@ -84,7 +85,9 @@ QWidget* PreviewNif::genDataPreview(const QByteArray& fileData, const QString& f
 
   layout->addWidget(makeLabel(nifFile.get()), 1, 0, 1, 1);
 
-  const auto nifWidget = new NifWidget(nifFile, m_MOInfo);
+  constexpr bool logGlErrors = false;
+
+  const auto nifWidget = new NifWidget(nifFile, fileName, m_MOInfo, logGlErrors);
   layout->addWidget(nifWidget, 0, 0, 1, 1);
 
   const auto widget = new QWidget();
@@ -103,6 +106,9 @@ QLabel* PreviewNif::makeLabel(const nifly::NifFile* nifFile)
     faces += shape->GetNumTriangles();
     verts += shape->GetNumVertices();
   }
+
+  qInfo() << "NIF preview summary" << verts << "verts" << faces << "faces"
+          << shapes << "shape(s)";
 
   const auto text =
       tr("Verts: %1 | Faces: %2 | Shapes: %3").arg(verts).arg(faces).arg(shapes);

@@ -1,14 +1,17 @@
 #pragma once
 
 #include <QOpenGLTexture>
+#include <QString>
+#include <QStringList>
+#include <QVector4D>
 #include <gli/gli.hpp>
-#include <uibase/imoinfo.h>
 #include <map>
+#include <string>
 
 class TextureManager
 {
 public:
-  explicit TextureManager(MOBase::IOrganizer* organizer);
+  explicit TextureManager(QString sourceFileName);
   ~TextureManager()                                = default;
   TextureManager(const TextureManager&)            = delete;
   TextureManager(TextureManager&&)                 = delete;
@@ -26,21 +29,26 @@ public:
   QOpenGLTexture* getFlatNormalTexture();
 
 private:
-  [[nodiscard]] QOpenGLTexture* loadTexture(const QString& texturePath) const;
-  QOpenGLTexture* tryLoadTextureFromMods(const QString& texturePath) const;
-  QOpenGLTexture* tryLoadTextureFromGame(const QString& texturePath) const;
+  [[nodiscard]] QOpenGLTexture* loadTexture(QString texturePath) const;
+  [[nodiscard]] QOpenGLTexture* loadTextureFromArchives(
+      const QString& texturePath) const;
   static QOpenGLTexture* loadTextureFromBSA(const QString& bsaPath,
                                             const QString& texturePath);
   static QOpenGLTexture* makeTexture(const gli::texture& texture);
   static QOpenGLTexture* makeSolidColor(QVector4D color);
 
-  QString resolvePath(const MOBase::IPluginGame* game, const QString& path) const;
+  QString resolvePath(QString path) const;
+  const QStringList& archivePaths() const;
 
-  MOBase::IOrganizer* m_MOInfo;
+  QString m_SourceFileName;
+  QString m_DataRoot;
+  QStringList m_DataRoots;
+  mutable QStringList m_ArchivePaths;
+  mutable bool m_ArchivePathsScanned = false;
   QOpenGLTexture* m_ErrorTexture      = nullptr;
   QOpenGLTexture* m_BlackTexture      = nullptr;
   QOpenGLTexture* m_WhiteTexture      = nullptr;
   QOpenGLTexture* m_FlatNormalTexture = nullptr;
 
-  std::map<std::wstring, QOpenGLTexture*> m_Textures;
+  std::map<std::string, QOpenGLTexture*> m_Textures;
 };

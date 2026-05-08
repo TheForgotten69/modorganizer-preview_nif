@@ -1,6 +1,7 @@
 #include "NifWidget.h"
 #include "NifExtensions.h"
 
+#include <QDebug>
 #include <QOpenGLContext>
 #include <QOpenGLFunctions_2_1>
 #include <QOpenGLVersionFunctionsFactory>
@@ -9,24 +10,19 @@
 using OpenGLFunctions = QOpenGLFunctions_2_1;
 
 NifWidget::NifWidget(std::shared_ptr<nifly::NifFile> nifFile,
-                     MOBase::IOrganizer* organizer, const bool debugContext,
-                     QWidget* parent, const Qt::WindowFlags f)
-  : QOpenGLWidget(parent, f), m_NifFile{std::move(nifFile)}, m_MOInfo{organizer},
-    m_TextureManager{std::make_unique<TextureManager>(organizer)},
+                     QString sourceFileName, MOBase::IOrganizer* organizer,
+                     const bool debugContext, QWidget* parent,
+                     const Qt::WindowFlags f)
+  : QOpenGLWidget(parent, f), m_NifFile{std::move(nifFile)},
+    m_SourceFileName{std::move(sourceFileName)}, m_MOInfo{organizer},
+    m_TextureManager{std::make_unique<TextureManager>(m_SourceFileName)},
     m_ShaderManager{std::make_unique<ShaderManager>(organizer)}
 {
-  QSurfaceFormat format;
-  format.setVersion(2, 1);
-  format.setProfile(QSurfaceFormat::CoreProfile);
-
   if (debugContext) {
+    QSurfaceFormat format;
     format.setOption(QSurfaceFormat::DebugContext);
-    m_Context = new QOpenGLContext();
-    m_Context->setFormat(format);
-    m_Context->create();
+    setFormat(format);
   }
-
-  setFormat(format);
 }
 
 NifWidget::~NifWidget()
@@ -90,14 +86,34 @@ void NifWidget::messageLogged(const QOpenGLDebugMessage& message)
 
 void NifWidget::initializeGL()
 {
-  if (m_Context) {
-    m_Logger = new QOpenGLDebugLogger(m_Context);
+  m_GLInitialized = true;
+  m_GLClean       = false;
+
+  const auto context = QOpenGLContext::currentContext();
+  if (!context) {
+    qCritical("No current OpenGL context for NIF preview");
+    return;
+  }
+
+  connect(context, &QOpenGLContext::aboutToBeDestroyed, this, &NifWidget::cleanup,
+          Qt::UniqueConnection);
+
+  const auto f =
+      QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(context);
+  if (!f) {
+    qCritical("Failed to resolve OpenGL 2.1 functions");
+    return;
+  }
+
+  if (context->format().testOption(QSurfaceFormat::DebugContext)) {
+    m_Logger = new QOpenGLDebugLogger(this);
     if (m_Logger->initialize()) {
       m_Logger->enableMessages();
-      qDebug() << "GL_DEBUG Debug Logger" << m_Logger;
       connect(m_Logger, &QOpenGLDebugLogger::messageLogged, this,
               &NifWidget::messageLogged);
       m_Logger->startLogging();
+    } else {
+      qWarning("Failed to initialize NIF preview OpenGL debug logger");
     }
   }
 
@@ -135,18 +151,19 @@ void NifWidget::initializeGL()
     update();
   });
 
-  const auto f = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(
-      QOpenGLContext::currentContext());
-
   f->glEnable(GL_DEPTH_TEST);
   f->glDepthFunc(GL_LEQUAL);
-  f->glClearColor(0.18, 0.18, 0.18, 1.0);
+  f->glClearColor(0.18f, 0.18f, 0.18f, 1.0f);
 }
 
 void NifWidget::paintGL()
 {
   const auto f = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(
       QOpenGLContext::currentContext());
+  if (!f) {
+    return;
+  }
+
   f->glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   std::vector<OpenGLShape*> opaqueShapes;
@@ -164,6 +181,10 @@ void NifWidget::paintGL()
   f->glPolygonOffset(1.0f, 2.0f);
 
   for (const auto* shape : opaqueShapes) {
+    if (!shape->vertexArray || !shape->vertexArray->isCreated()) {
+      continue;
+    }
+
     if (const auto program = m_ShaderManager->getProgram(shape->shaderType);
       program && program->isLinked() && program->bind()) {
       auto binder = QOpenGLVertexArrayObject::Binder(shape->vertexArray);
@@ -196,6 +217,10 @@ void NifWidget::paintGL()
   f->glDepthMask(GL_FALSE);
 
   for (const auto* shape : transparentShapes) {
+    if (!shape->vertexArray || !shape->vertexArray->isCreated()) {
+      continue;
+    }
+
     if (const auto program = m_ShaderManager->getProgram(shape->shaderType);
       program && program->isLinked() && program->bind()) {
       auto binder = QOpenGLVertexArrayObject::Binder(shape->vertexArray);
@@ -237,7 +262,17 @@ void NifWidget::resizeGL(const int w, const int h)
 
 void NifWidget::cleanup()
 {
+  if (!m_GLInitialized || m_GLClean || !context()) {
+    return;
+  }
+
   makeCurrent();
+
+  if (m_Logger) {
+    m_Logger->stopLogging();
+    delete m_Logger;
+    m_Logger = nullptr;
+  }
 
   for (auto& shape : m_GLShapes) {
     shape.destroy();
@@ -245,10 +280,16 @@ void NifWidget::cleanup()
   m_GLShapes.clear();
 
   m_TextureManager->cleanup();
+  doneCurrent();
+  m_GLClean = true;
 }
 
 void NifWidget::setProjectionMatrix()
 {
+  if (m_ViewportWidth <= 0.0f || m_ViewportHeight <= 0.0f || m_Camera.isNull()) {
+    return;
+  }
+
   QMatrix4x4 m;
   m.perspective(40.0f, m_ViewportWidth / m_ViewportHeight,
                 m_Camera->nearPlane(), m_Camera->farPlane());

@@ -1,6 +1,7 @@
 #include "OpenGLShape.h"
 #include "NifExtensions.h"
 
+#include <QDebug>
 #include <QOpenGLContext>
 #include <QOpenGLFunctions_2_1>
 #include <QOpenGLVersionFunctionsFactory>
@@ -17,6 +18,11 @@ static QOpenGLBuffer* makeVertexBuffer(const std::vector<T>* data, const GLuint 
 
       const auto f = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(
           QOpenGLContext::currentContext());
+      if (!f) {
+        buffer->release();
+        delete buffer;
+        return nullptr;
+      }
 
       f->glEnableVertexAttribArray(attrib);
 
@@ -24,6 +30,9 @@ static QOpenGLBuffer* makeVertexBuffer(const std::vector<T>* data, const GLuint 
                                sizeof(T), nullptr);
 
       buffer->release();
+    } else {
+      qWarning() << "Failed to create or bind NIF vertex buffer for attribute"
+                 << attrib;
     }
   }
 
@@ -51,6 +60,10 @@ OpenGLShape::OpenGLShape(nifly::NifFile* nifFile, nifly::NiShape* niShape,
 {
   const auto f = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(
       QOpenGLContext::currentContext());
+  if (!f) {
+    qCritical("Failed to resolve OpenGL 2.1 functions");
+    return;
+  }
 
   const auto shader = nifFile->GetShader(niShape);
 
@@ -80,7 +93,10 @@ OpenGLShape::OpenGLShape(nifly::NifFile* nifFile, nifly::NiShape* niShape,
   }
 
   vertexArray = new QOpenGLVertexArrayObject();
-  vertexArray->create();
+  if (!vertexArray->create()) {
+    qWarning("Failed to create OpenGL vertex array object");
+    return;
+  }
   auto binder = QOpenGLVertexArrayObject::Binder(vertexArray);
 
   const auto xform = GetShapeTransformToGlobal(nifFile, niShape);
@@ -93,6 +109,8 @@ OpenGLShape::OpenGLShape(nifly::NifFile* nifFile, nifly::NiShape* niShape,
 
   if (const auto verts = nifFile->GetVertsForShape(niShape)) {
     vertexBuffers[AttribPosition] = makeVertexBuffer(verts, AttribPosition);
+  } else {
+    qWarning("NIF shape has no vertex positions");
   }
 
   if (const auto normals = nifFile->GetNormalsForShape(niShape)) {
@@ -130,6 +148,8 @@ OpenGLShape::OpenGLShape(nifly::NifFile* nifFile, nifly::NiShape* niShape,
     if (std::vector<nifly::Triangle> tris; niShape->GetTriangles(tris)) {
       indexBuffer->allocate(tris.data(),
                             static_cast<int>(tris.size() * sizeof(nifly::Triangle)));
+    } else {
+      qWarning("NIF shape has no triangles");
     }
 
     const uint32_t iElements = niShape->GetNumTriangles() * 3;
@@ -146,30 +166,37 @@ OpenGLShape::OpenGLShape(nifly::NifFile* nifFile, nifly::NiShape* niShape,
     if (shader->HasTextureSet()) {
       const auto textureSetRef = shader->TextureSetRef();
       const auto textureSet    = nifFile->GetHeader().GetBlock(textureSetRef);
+      if (!textureSet) {
+        qWarning("NIF shader references a missing texture set");
+      } else {
+        for (std::size_t i = 0; i < textureSet->textures.size(); i++) {
+          if (i >= textures.size()) {
+            qWarning() << "Skipping unsupported NIF texture slot" << i;
+            continue;
+          }
+          if (auto texturePath = textureSet->textures[i].get(); !texturePath.empty()) {
+            textures[i] = textureManager->getTexture(texturePath);
+          }
 
-      for (std::size_t i = 0; i < textureSet->textures.size(); i++) {
-        if (auto texturePath = textureSet->textures[i].get(); !texturePath.empty()) {
-          textures[i] = textureManager->getTexture(texturePath);
-        }
-
-        if (textures[i] == nullptr) {
-          switch (i) {
-          case TextureSlot::BaseMap:
-            textures[i] = textureManager->getErrorTexture();
-            break;
-          case TextureSlot::NormalMap:
-            textures[i] = textureManager->getFlatNormalTexture();
-            break;
-          case TextureSlot::GlowMap:
-            if (shader->HasGlowmap()) {
-              textures[i] = textureManager->getBlackTexture();
-            } else {
-              textures[i] = textureManager->getWhiteTexture();
+          if (textures[i] == nullptr) {
+            switch (i) {
+            case TextureSlot::BaseMap:
+              textures[i] = textureManager->getErrorTexture();
+              break;
+            case TextureSlot::NormalMap:
+              textures[i] = textureManager->getFlatNormalTexture();
+              break;
+            case TextureSlot::GlowMap:
+              if (shader->HasGlowmap()) {
+                textures[i] = textureManager->getBlackTexture();
+              } else {
+                textures[i] = textureManager->getWhiteTexture();
+              }
+              break;
+            default:
+              textures[i] = nullptr;
+              break;
             }
-            break;
-          default:
-            textures[i] = nullptr;
-            break;
           }
         }
       }
@@ -333,6 +360,9 @@ void OpenGLShape::setupShaders(QOpenGLShaderProgram* program) const
 
   const auto f = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(
       QOpenGLContext::currentContext());
+  if (!f) {
+    return;
+  }
 
   for (std::size_t i = 0; i < ATTRIB_COUNT; i++) {
     if (vertexBuffers[i]) {

@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 
 find_package(mo2-cmake CONFIG REQUIRED)
 find_package(mo2-uibase CONFIG REQUIRED)
+find_package(mo2-dds-header CONFIG REQUIRED)
 find_package(mo2-libbsarch CONFIG REQUIRED)
 find_package(Qt6 REQUIRED COMPONENTS OpenGL OpenGLWidgets)
 

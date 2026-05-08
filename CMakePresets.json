@@ -33,7 +33,6 @@
     {
       "name": "vs2022-windows",
       "inherits": [
-        "cmake-dev",
         "vcpkg-dev"
       ],
       "generator": "Visual Studio 17 2022",
@@ -45,6 +44,10 @@
       },
       "cacheVariables": {
         "CMAKE_CXX_FLAGS": "/EHsc /MP /W4",
+        "FETCHCONTENT_BASE_DIR": {
+          "type": "PATH",
+          "value": "${sourceDir}/../../.cache/fetchcontent"
+        },
         "VCPKG_TARGET_TRIPLET": {
           "type": "STRING",
           "value": "x64-windows-static-md"
