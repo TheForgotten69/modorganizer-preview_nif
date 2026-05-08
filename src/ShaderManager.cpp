@@ -62,9 +62,6 @@ QOpenGLShaderProgram* ShaderManager::loadProgram(const ShaderType type)
   const auto vertexShader   = QString("%1/shaders/%2").arg(dataPath, vert);
   const auto fragmentShader = QString("%1/shaders/%2").arg(dataPath, frag);
 
-  qInfo() << "Loading NIF shader program" << type << vertexShader
-          << fragmentShader;
-
   const auto program = new QOpenGLShaderProgram(QOpenGLContext::currentContext());
   if (!program->addShaderFromSourceFile(QOpenGLShader::Vertex, vertexShader)) {
     qWarning() << "Failed to compile vertex shader" << vertexShader
@@ -85,8 +82,6 @@ QOpenGLShaderProgram* ShaderManager::loadProgram(const ShaderType type)
   if (!program->link()) {
     qWarning() << "Failed to link shader program" << vertexShader << fragmentShader
                << program->log();
-  } else {
-    qInfo() << "Linked NIF shader program" << type;
   }
 
   return program;

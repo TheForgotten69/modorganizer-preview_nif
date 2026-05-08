@@ -66,16 +66,11 @@ QWidget* PreviewNif::genDataPreview(const QByteArray& fileData, const QString& f
   auto path = std::filesystem::path(fileName.toStdWString());
   std::shared_ptr<nifly::NifFile> nifFile;
 
-  qInfo() << "NIF preview requested for" << fileName << "max size" << maxSize
-          << "data bytes" << (fileData == nullptr ? 0 : fileData.size());
-
   if (fileData != nullptr && !fileData.isEmpty()) {
-    qInfo() << "Loading NIF preview from provided data for" << fileName;
     const auto fileStream =
         std::make_shared<std::istringstream>(fileData.toStdString());
     nifFile = std::make_shared<nifly::NifFile>(*fileStream);
   } else {
-    qInfo() << "Loading NIF preview from file path" << fileName;
     nifFile = std::make_shared<nifly::NifFile>(path);
   }
 
@@ -90,8 +85,7 @@ QWidget* PreviewNif::genDataPreview(const QByteArray& fileData, const QString& f
 
   layout->addWidget(makeLabel(nifFile.get()), 1, 0, 1, 1);
 
-  constexpr bool logGlErrors = true;
-  qInfo("NIF preview OpenGL diagnostic logging enabled");
+  constexpr bool logGlErrors = false;
 
   const auto nifWidget = new NifWidget(nifFile, fileName, m_MOInfo, logGlErrors);
   layout->addWidget(nifWidget, 0, 0, 1, 1);

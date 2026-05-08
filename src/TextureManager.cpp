@@ -172,8 +172,6 @@ QStringList findDataRoots(const QString& dataRoot)
   const auto modListPath = findModListPath(modsRoot);
   const auto enabledMods = readEnabledMods(modListPath);
   if (!enabledMods.isEmpty()) {
-    qInfo() << "NIF texture resolver using modlist" << modListPath
-            << "enabled mods" << enabledMods.size();
     for (auto it = enabledMods.crbegin(); it != enabledMods.crend(); ++it) {
       addUniquePath(dataRoots, modsDir.absoluteFilePath(*it));
     }
@@ -217,13 +215,8 @@ QStringList findArchives(const QStringList& dataRoots)
 TextureManager::TextureManager(QString sourceFileName)
   : m_SourceFileName{detachedUtf8Copy(sourceFileName)},
     m_DataRoot{findDataRoot(m_SourceFileName)},
-    m_DataRoots{findDataRoots(m_DataRoot)},
-    m_ArchivePaths{findArchives(m_DataRoots)}
+    m_DataRoots{findDataRoots(m_DataRoot)}
 {
-  qInfo() << "NIF texture source file" << m_SourceFileName;
-  qInfo() << "NIF texture data root" << m_DataRoot;
-  qInfo() << "NIF texture filesystem root count" << m_DataRoots.size();
-  qInfo() << "NIF texture archive count" << m_ArchivePaths.size();
 }
 
 void TextureManager::cleanup()
@@ -260,12 +253,8 @@ QOpenGLTexture* TextureManager::getTexture(const QString& texturePath)
     return nullptr;
   }
 
-  qInfo() << "NIF texture requested" << stableTexturePath;
-
   const auto cacheKey = textureCacheKey(stableTexturePath);
   if (const auto cached = m_Textures.find(cacheKey); cached != m_Textures.end()) {
-    qInfo() << "NIF texture cache hit" << stableTexturePath
-            << (cached->second ? "loaded" : "missing");
     return cached->second;
   }
 
@@ -279,8 +268,6 @@ QOpenGLTexture* TextureManager::getTexture(const QString& texturePath)
                << "unknown exception";
   }
 
-  qInfo() << "NIF texture result" << stableTexturePath
-          << (texture ? "loaded" : "missing");
   m_Textures[cacheKey] = texture;
   return texture;
 }
@@ -319,12 +306,9 @@ QOpenGLTexture* TextureManager::getFlatNormalTexture()
 
 QOpenGLTexture* TextureManager::loadTexture(QString texturePath) const
 {
-  qInfo() << "NIF texture load entered" << texturePath;
   if (texturePath.isEmpty()) {
     return nullptr;
   }
-
-  qInfo() << "Resolving NIF texture path" << texturePath;
 
   QString realPath;
   try {
@@ -345,7 +329,6 @@ QOpenGLTexture* TextureManager::loadTexture(QString texturePath) const
 
   if (fileExists) {
     try {
-      qInfo() << "Loading NIF texture from resolved file" << realPath;
       return makeTexture(gli::load(realPath.toStdString()));
     } catch (const std::exception& e) {
       qWarning() << "Failed to load NIF texture file" << realPath << e.what();
@@ -369,20 +352,18 @@ QOpenGLTexture* TextureManager::loadTexture(QString texturePath) const
                << texturePath << "unknown exception";
   }
 
-  qInfo() << "NIF texture not found" << texturePath;
   return nullptr;
 }
 
 QOpenGLTexture* TextureManager::loadTextureFromArchives(
     const QString& texturePath) const
 {
-  if (m_ArchivePaths.isEmpty()) {
+  const auto& archives = archivePaths();
+  if (archives.isEmpty()) {
     return nullptr;
   }
 
-  qInfo() << "Searching" << m_ArchivePaths.size()
-          << "archive(s) for NIF texture" << texturePath;
-  for (const auto& archivePath : m_ArchivePaths) {
+  for (const auto& archivePath : archives) {
     if (const auto texture = loadTextureFromBSA(archivePath, texturePath)) {
       return texture;
     }
@@ -414,8 +395,6 @@ QOpenGLTexture* TextureManager::loadTextureFromBSA(const QString& bsaPath,
   const UniqueBufferPtr buffer(&rBuffer, BsaBufferDeleter(bsaHandle.get()));
 
   const auto data = static_cast<char*>(buffer->data);
-  qInfo() << "Extracted NIF texture from archive" << texturePath << "from"
-          << bsaPath << "bytes" << buffer->size;
   try {
     return makeTexture(gli::load(data, buffer->size));
   } catch (const std::exception& e) {
@@ -439,10 +418,6 @@ QOpenGLTexture* TextureManager::makeTexture(const gli::texture& texture)
   const auto [internal, external, type, swizzles] =
       GL.translate(texture.format(), texture.swizzles());
   GLenum target = GL.translate(texture.target());
-
-  qInfo() << "Uploading NIF texture to OpenGL target" << target << "format"
-          << internal << "levels" << texture.levels() << "layers"
-          << texture.layers() << "faces" << texture.faces();
 
   auto* f = QOpenGLVersionFunctionsFactory::get<QOpenGLFunctions_2_1>(
       QOpenGLContext::currentContext());
@@ -472,7 +447,6 @@ QOpenGLTexture* TextureManager::makeTexture(const gli::texture& texture)
     glTexture->setWrapMode(QOpenGLTexture::Repeat);
 
     const auto extent = texture.extent();
-    qInfo() << "NIF texture extent" << extent.x << extent.y << extent.z;
     glTexture->setSize(extent.x, extent.y, extent.z);
     glTexture->setFormat(static_cast<QOpenGLTexture::TextureFormat>(internal));
     glTexture->allocateStorage(static_cast<QOpenGLTexture::PixelFormat>(external),
@@ -595,7 +569,6 @@ QString TextureManager::resolvePath(QString path) const
   }
 
   if (QFileInfo(normalizedPath).isAbsolute()) {
-    qInfo() << "NIF texture absolute candidate" << normalizedPath;
     return QFileInfo(normalizedPath).isFile() ? detachedUtf8Copy(normalizedPath)
                                               : QString();
   }
@@ -607,10 +580,19 @@ QString TextureManager::resolvePath(QString path) const
   for (const auto& dataRoot : m_DataRoots) {
     const auto candidate = QDir(dataRoot).absoluteFilePath(normalizedPath);
     if (QFileInfo(candidate).isFile()) {
-      qInfo() << "NIF texture loose-file resolved" << candidate;
       return detachedUtf8Copy(candidate);
     }
   }
 
   return QString();
+}
+
+const QStringList& TextureManager::archivePaths() const
+{
+  if (!m_ArchivePathsScanned) {
+    m_ArchivePaths        = findArchives(m_DataRoots);
+    m_ArchivePathsScanned = true;
+  }
+
+  return m_ArchivePaths;
 }

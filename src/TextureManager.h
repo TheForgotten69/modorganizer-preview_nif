@@ -38,11 +38,13 @@ private:
   static QOpenGLTexture* makeSolidColor(QVector4D color);
 
   QString resolvePath(QString path) const;
+  const QStringList& archivePaths() const;
 
   QString m_SourceFileName;
   QString m_DataRoot;
   QStringList m_DataRoots;
-  QStringList m_ArchivePaths;
+  mutable QStringList m_ArchivePaths;
+  mutable bool m_ArchivePathsScanned = false;
   QOpenGLTexture* m_ErrorTexture      = nullptr;
   QOpenGLTexture* m_BlackTexture      = nullptr;
   QOpenGLTexture* m_WhiteTexture      = nullptr;

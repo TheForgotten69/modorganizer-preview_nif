@@ -23,9 +23,6 @@ NifWidget::NifWidget(std::shared_ptr<nifly::NifFile> nifFile,
     format.setOption(QSurfaceFormat::DebugContext);
     setFormat(format);
   }
-
-  qInfo() << "NIF preview widget created; OpenGL debug context"
-          << (debugContext ? "requested" : "not requested");
 }
 
 NifWidget::~NifWidget()
@@ -98,10 +95,6 @@ void NifWidget::initializeGL()
     return;
   }
 
-  const auto format = context->format();
-  qInfo() << "NIF preview OpenGL context" << format.majorVersion()
-          << format.minorVersion() << "profile" << format.profile();
-
   connect(context, &QOpenGLContext::aboutToBeDestroyed, this, &NifWidget::cleanup,
           Qt::UniqueConnection);
 
@@ -112,11 +105,10 @@ void NifWidget::initializeGL()
     return;
   }
 
-  if (format.testOption(QSurfaceFormat::DebugContext)) {
+  if (context->format().testOption(QSurfaceFormat::DebugContext)) {
     m_Logger = new QOpenGLDebugLogger(this);
     if (m_Logger->initialize()) {
       m_Logger->enableMessages();
-      qInfo() << "NIF preview OpenGL debug logger initialized";
       connect(m_Logger, &QOpenGLDebugLogger::messageLogged, this,
               &NifWidget::messageLogged);
       m_Logger->startLogging();
@@ -126,14 +118,11 @@ void NifWidget::initializeGL()
   }
 
   auto shapes = m_NifFile->GetShapes();
-  qInfo() << "NIF preview loading" << shapes.size() << "shape(s)";
   for (auto& shape : shapes) {
     if (shape->flags & TriShape::Hidden) {
       continue;
     }
 
-    qInfo() << "NIF preview shape" << shape->GetNumVertices() << "verts"
-            << shape->GetNumTriangles() << "faces";
     m_GLShapes.emplace_back(m_NifFile.get(), shape, m_TextureManager.get());
   }
 

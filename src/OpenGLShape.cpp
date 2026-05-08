@@ -12,8 +12,6 @@ static QOpenGLBuffer* makeVertexBuffer(const std::vector<T>* data, const GLuint 
   QOpenGLBuffer* buffer = nullptr;
 
   if (data) {
-    qInfo() << "Creating NIF vertex buffer for attribute" << attrib << "items"
-            << data->size() << "bytes" << data->size() * sizeof(T);
     buffer = new QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
     if (buffer->create() && buffer->bind()) {
       buffer->allocate(data->data(), data->size() * sizeof(T));
@@ -32,7 +30,6 @@ static QOpenGLBuffer* makeVertexBuffer(const std::vector<T>* data, const GLuint 
                                sizeof(T), nullptr);
 
       buffer->release();
-      qInfo() << "Created NIF vertex buffer for attribute" << attrib;
     } else {
       qWarning() << "Failed to create or bind NIF vertex buffer for attribute"
                  << attrib;
@@ -47,16 +44,12 @@ void validateShapeGeometry(nifly::NiShape* shape)
   if (const auto geomData = shape->GetGeomData()) {
     if (!shape->HasUVs()) { shape->SetUVs(true); }
     if (!shape->HasNormals()) {
-      qInfo() << "Generating missing NIF normals";
       shape->SetNormals(true);
       geomData->RecalcNormals();
-      qInfo() << "Generated missing NIF normals";
     }
     if (!shape->HasTangents() || geomData->tangents.empty()) {
-      qInfo() << "Generating missing NIF tangents";
       shape->SetTangents(true);
       geomData->CalcTangentSpace();
-      qInfo() << "Generated missing NIF tangents";
     }
     if (!shape->HasVertexColors()) { shape->SetVertexColors(true); }
   }
@@ -98,7 +91,6 @@ OpenGLShape::OpenGLShape(nifly::NifFile* nifFile, nifly::NiShape* niShape,
   } else {
     shaderType = ShaderManager::None;
   }
-  qInfo() << "NIF preview shape shader type" << shaderType;
 
   vertexArray = new QOpenGLVertexArrayObject();
   if (!vertexArray->create()) {
@@ -113,9 +105,7 @@ OpenGLShape::OpenGLShape(nifly::NifFile* nifFile, nifly::NiShape* niShape,
   f->glVertexAttrib2f(AttribTexCoord, 0.0f, 0.0f);
   f->glVertexAttrib4f(AttribColor, 1.0f, 1.0f, 1.0f, 1.0f);
 
-  qInfo() << "Preparing NIF shape geometry";
   validateShapeGeometry(niShape);
-  qInfo() << "Prepared NIF shape geometry";
 
   if (const auto verts = nifFile->GetVertsForShape(niShape)) {
     vertexBuffers[AttribPosition] = makeVertexBuffer(verts, AttribPosition);
@@ -156,8 +146,6 @@ OpenGLShape::OpenGLShape(nifly::NifFile* nifFile, nifly::NiShape* niShape,
   if (indexBuffer->create() && indexBuffer->bind()) {
 
     if (std::vector<nifly::Triangle> tris; niShape->GetTriangles(tris)) {
-      qInfo() << "Creating NIF index buffer with" << tris.size()
-              << "triangle(s)";
       indexBuffer->allocate(tris.data(),
                             static_cast<int>(tris.size() * sizeof(nifly::Triangle)));
     } else {
@@ -181,15 +169,12 @@ OpenGLShape::OpenGLShape(nifly::NifFile* nifFile, nifly::NiShape* niShape,
       if (!textureSet) {
         qWarning("NIF shader references a missing texture set");
       } else {
-        qInfo() << "NIF shader texture count" << textureSet->textures.size();
-
         for (std::size_t i = 0; i < textureSet->textures.size(); i++) {
           if (i >= textures.size()) {
             qWarning() << "Skipping unsupported NIF texture slot" << i;
             continue;
           }
           if (auto texturePath = textureSet->textures[i].get(); !texturePath.empty()) {
-            qInfo() << "Resolving NIF texture slot" << i << texturePath;
             textures[i] = textureManager->getTexture(texturePath);
           }
 
