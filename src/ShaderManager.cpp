@@ -1,4 +1,5 @@
 #include "ShaderManager.h"
+#include "Shaders.h"
 
 #include <QDebug>
 #include <QOpenGLContext>
@@ -22,53 +23,18 @@ QOpenGLShaderProgram* ShaderManager::getProgram(const ShaderType type)
 
 QOpenGLShaderProgram* ShaderManager::loadProgram(const ShaderType type)
 {
-  QString vert;
-  QString frag;
-
-  switch (type) {
-  case SKDefault:
-    vert = "default.vert";
-    frag = "sk_default.frag";
-    break;
-  case SKMSN:
-    vert = "sk_msn.vert";
-    frag = "sk_msn.frag";
-    break;
-  case SKMultilayer:
-    vert = "default.vert";
-    frag = "sk_multilayer.frag";
-    break;
-  case SKEffectShader:
-    vert = "sk_effectshader.vert";
-    frag = "sk_effectshader.frag";
-    break;
-  case SKPBR:
-    vert = "default.vert";
-    frag = "sk_pbr.frag";
-    break;
-  case FO4Default:
-    vert = "default.vert";
-    frag = "fo4_default.frag";
-    break;
-  case FO4EffectShader:
-    vert = "default.vert";
-    frag = "fo4_effectshader.frag";
-    break;
-  default:
+  const auto* source = shaderSourceFor(type);
+  if (!source) {
     return nullptr;
   }
 
-  const auto dataPath       = MOBase::IOrganizer::getPluginDataPath();
-  const auto vertexShader   = QString("%1/shaders/%2").arg(dataPath, vert);
-  const auto fragmentShader = QString("%1/shaders/%2").arg(dataPath, frag);
-
   const auto program = new QOpenGLShaderProgram(QOpenGLContext::currentContext());
-  if (!program->addShaderFromSourceFile(QOpenGLShader::Vertex, vertexShader)) {
-    qWarning() << "Failed to compile vertex shader" << vertexShader
+  if (!program->addShaderFromSourceCode(QOpenGLShader::Vertex, source->vertex)) {
+    qWarning() << "Failed to compile vertex shader" << source->vertexName
                << program->log();
   }
-  if (!program->addShaderFromSourceFile(QOpenGLShader::Fragment, fragmentShader)) {
-    qWarning() << "Failed to compile fragment shader" << fragmentShader
+  if (!program->addShaderFromSourceCode(QOpenGLShader::Fragment, source->fragment)) {
+    qWarning() << "Failed to compile fragment shader" << source->fragmentName
                << program->log();
   }
 
@@ -80,7 +46,8 @@ QOpenGLShaderProgram* ShaderManager::loadProgram(const ShaderType type)
   program->bindAttributeLocation("color", AttribColor);
 
   if (!program->link()) {
-    qWarning() << "Failed to link shader program" << vertexShader << fragmentShader
+    qWarning() << "Failed to link shader program" << source->vertexName
+               << source->fragmentName
                << program->log();
   }
 
